@@ -529,6 +529,11 @@ properties:
   replicaCount:
     type: integer
     minimum: 0
+  minReadySeconds:
+    minimum: 0
+    type: integer
+  updateStrategyType:
+    type: string
   clusterName:
     type: string
     maxLength: 30

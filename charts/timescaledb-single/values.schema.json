@@ -681,6 +681,13 @@
       "minimum": 0,
       "type": "integer"
     },
+    "minReadySeconds": {
+      "minimum": 0,
+      "type": "integer"
+    },
+    "updateStrategyType": {
+        "type": "string"
+    }
     "resources": {
       "additionalProperties": false,
       "properties": {

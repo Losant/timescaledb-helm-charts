@@ -12,9 +12,10 @@ metadata:
 spec:
   serviceName: {{ template "timescaledb.fullname" . }}
   replicas: {{ .Values.replicaCount }}
+  minReadySeconds: {{ .Values.minReadySeconds }}
   podManagementPolicy: {{ .Values.podManagementPolicy }}
   updateStrategy:
-    type: RollingUpdate
+    type: {{ .Values.updateStrategyType }}
   selector:
     matchLabels:
       app: {{ template "timescaledb.fullname" . }}
