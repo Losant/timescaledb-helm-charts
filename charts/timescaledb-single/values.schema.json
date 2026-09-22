@@ -687,7 +687,7 @@
     },
     "updateStrategyType": {
         "type": "string"
-    }
+    },
     "resources": {
       "additionalProperties": false,
       "properties": {

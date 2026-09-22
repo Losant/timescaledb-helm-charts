@@ -58,29 +58,54 @@ __EOT__
         # We want to ensure we do not overwrite a current backup repository with archives, therefore
         # we block archiving from succeeding until Patroni can takeover
         touch "${PGDATA}/recovery.signal"
+        ls -la ${PGDATA}
         pg_ctl -D "${PGDATA}" start -o '--archive-command=/bin/false'
+
+        echo "#########################################"
 
         while ! pg_isready -q; do
             log "Waiting for PostgreSQL to become available"
             sleep 3
         done
 
+        # NOTE: Stop pgbackrest (maybe put an ENV_VAR here) because this will work as is if the cluster is actually down.
+        # NOTE: Remember to add something to restart pgbackrest when it is finished restoring.
+        # pgbackrest stop
+
+        # NOTE: Does the python3 command below still work? I have had to go in and run the pgbackrest info command manually and find the max myself in the past. OPTION: Is jq available on this box? Can I use that to find the 'max value.'
+
+        echo "###############################################"
+        echo " ### Stopping pgbackrest ###"
+        echo "###############################################"
+        pgbackrest stop
+
         # It is not trivial to figure out to what point we should restore, pgBackRest
         # should be fetching WAL segments until the WAL is exhausted. We'll ask pgBackRest
         # what the Maximum Wal is that it currently has; as soon as we see that, we can consider
         # the restore to be done
         while true; do
-            MAX_BACKUP_WAL="$(pgbackrest info --output=json | python3 -c "import json,sys;obj=json.load(sys.stdin); print(obj[0]['archive'][0]['max']);")"
+            # THIS COULD BE CHANGED TO:
+            MAX_BACKUP_WAL="$(pgbackrest info | grep 'max' | awk -F: '{print $2}' | awk -F/ '{print $1}' | sed -e 's/^[ \t]*//')"
+            echo $MAX_BACKUP_WAL
+            # MAX_BACKUP_WAL="$(pgbackrest info --output=json | python3 -c "import json,sys;obj=json.load(sys.stdin); print(obj[0]['archive'][0]['max']);")"
             log "Testing whether WAL file ${MAX_BACKUP_WAL} has been restored ..."
             [ -f "${PGDATA}/pg_wal/${MAX_BACKUP_WAL}" ] && break
             sleep 30;
         done
+
+        echo "###############################################"
+        echo " ### Starting pgbackrest ###"
+        echo "###############################################"
+        pgbackrest start
 
         # At this point we know the final WAL archive has been restored, we should be done.
         log "The WAL file ${MAX_BACKUP_WAL} has been successully restored, shutting down instance"
         pg_ctl -D "${PGDATA}" promote
         pg_ctl -D "${PGDATA}" stop -m fast
         log "Handing over control to Patroni ..."
+
+        # NOTE: restart pgbackrest
+        # pgbackrest start
     else
         log "Bootstrap from backup failed"
         exit 1
