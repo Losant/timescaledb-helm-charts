@@ -3,6 +3,7 @@
 : "${ENV_FILE:=${HOME}/.pod_environment}"
 if [ -f "${ENV_FILE}" ]; then
     echo "Sourcing ${ENV_FILE}"
+    # shellcheck source=/dev/null
     . "${ENV_FILE}"
 fi
 
@@ -53,15 +54,16 @@ __EOT__
 
     pgbackrest --log-level-console=detail restore
     EXITCODE=$?
+
     if [ ${EXITCODE} -eq 0 ]; then
         log "pgBackRest restore finished succesfully, starting instance in recovery"
         # We want to ensure we do not overwrite a current backup repository with archives, therefore
         # we block archiving from succeeding until Patroni can takeover
         touch "${PGDATA}/recovery.signal"
-        ls -la ${PGDATA}
+        ls -la "${PGDATA}"
         pg_ctl -D "${PGDATA}" start -o '--archive-command=/bin/false'
 
-        echo "#########################################"
+        pgbackrest info | grep "max" | awk -F: '{print $2}' | awk -F/ '{print $1}' | sed -e 's/^[ \t]*//'
 
         while ! pg_isready -q; do
             log "Waiting for PostgreSQL to become available"
@@ -74,9 +76,7 @@ __EOT__
 
         # NOTE: Does the python3 command below still work? I have had to go in and run the pgbackrest info command manually and find the max myself in the past. OPTION: Is jq available on this box? Can I use that to find the 'max value.'
 
-        echo "###############################################"
-        echo " ### Stopping pgbackrest ###"
-        echo "###############################################"
+        log "Stopping pgbackrest"
         pgbackrest stop
 
         # It is not trivial to figure out to what point we should restore, pgBackRest
@@ -84,18 +84,15 @@ __EOT__
         # what the Maximum Wal is that it currently has; as soon as we see that, we can consider
         # the restore to be done
         while true; do
-            # THIS COULD BE CHANGED TO:
             MAX_BACKUP_WAL="$(pgbackrest info | grep 'max' | awk -F: '{print $2}' | awk -F/ '{print $1}' | sed -e 's/^[ \t]*//')"
-            echo $MAX_BACKUP_WAL
-            # MAX_BACKUP_WAL="$(pgbackrest info --output=json | python3 -c "import json,sys;obj=json.load(sys.stdin); print(obj[0]['archive'][0]['max']);")"
             log "Testing whether WAL file ${MAX_BACKUP_WAL} has been restored ..."
+            log "Touch file with the max backup wal value"
+            touch "${PGDATA}"/pg_wal/"${MAX_BACKUP_WAL}"
             [ -f "${PGDATA}/pg_wal/${MAX_BACKUP_WAL}" ] && break
             sleep 30;
         done
 
-        echo "###############################################"
-        echo " ### Starting pgbackrest ###"
-        echo "###############################################"
+        log "Starting pgbackrest"
         pgbackrest start
 
         # At this point we know the final WAL archive has been restored, we should be done.
