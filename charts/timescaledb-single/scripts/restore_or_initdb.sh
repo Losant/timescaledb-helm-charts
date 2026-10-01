@@ -74,9 +74,6 @@ __EOT__
 
         # NOTE: Does the python3 command below still work? I have had to go in and run the pgbackrest info command manually and find the max myself in the past. OPTION: Is jq available on this box? Can I use that to find the 'max value.'
 
-        #log "Stopping pgbackrest"
-        #pgbackrest stop
-
         # It is not trivial to figure out to what point we should restore, pgBackRest
         # should be fetching WAL segments until the WAL is exhausted. We'll ask pgBackRest
         # what the Maximum Wal is that it currently has; as soon as we see that, we can consider
@@ -89,9 +86,6 @@ __EOT__
             [ -f "${PGDATA}/pg_wal/${MAX_BACKUP_WAL}" ] && break
             sleep 30;
         done
-
-        #log "Starting pgbackrest"
-        #pgbackrest start
 
         # At this point we know the final WAL archive has been restored, we should be done.
         log "The WAL file ${MAX_BACKUP_WAL} has been successully restored, shutting down instance"
