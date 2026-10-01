@@ -63,8 +63,6 @@ __EOT__
         ls -la "${PGDATA}"
         pg_ctl -D "${PGDATA}" start -o '--archive-command=/bin/false'
 
-        pgbackrest info | grep "max" | awk -F: '{print $2}' | awk -F/ '{print $1}' | sed -e 's/^[ \t]*//'
-
         while ! pg_isready -q; do
             log "Waiting for PostgreSQL to become available"
             sleep 3
@@ -76,8 +74,8 @@ __EOT__
 
         # NOTE: Does the python3 command below still work? I have had to go in and run the pgbackrest info command manually and find the max myself in the past. OPTION: Is jq available on this box? Can I use that to find the 'max value.'
 
-        log "Stopping pgbackrest"
-        pgbackrest stop
+        #log "Stopping pgbackrest"
+        #pgbackrest stop
 
         # It is not trivial to figure out to what point we should restore, pgBackRest
         # should be fetching WAL segments until the WAL is exhausted. We'll ask pgBackRest
@@ -92,8 +90,8 @@ __EOT__
             sleep 30;
         done
 
-        log "Starting pgbackrest"
-        pgbackrest start
+        #log "Starting pgbackrest"
+        #pgbackrest start
 
         # At this point we know the final WAL archive has been restored, we should be done.
         log "The WAL file ${MAX_BACKUP_WAL} has been successully restored, shutting down instance"
